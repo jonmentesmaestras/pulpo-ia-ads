@@ -1,0 +1,256 @@
+
+const express = require('express');
+const mysql = require('mysql2');
+const cors = require('cors');
+
+const app = express();
+const port = 3000;
+const router = express.Router();
+
+app.use(cors());
+app.use(express.json());
+app.use('/ads', router);
+
+const db = mysql.createPool({
+    host: '50.31.176.8',
+    user: 'zmcrbvch_jon',
+    password: 'Runero!54Alien32.',
+    database: 'zmcrbvch_emailHacks',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+const jsonFields = ['publisherPlatform', 'AdDescription', 'AdTitle', 'age', 'languages', 'countries', 'codeBelongs'];
+
+// Helper function to parse JSON fields
+const parseJsonFields = (ad) => {
+    const newAd = { ...ad };
+    for (const field of jsonFields) {
+        if (newAd[field] && typeof newAd[field] === 'string') {
+            try {
+                newAd[field] = JSON.parse(newAd[field]);
+            } catch (e) {
+                console.error(`Error parsing JSON for field ${field}:`, e);
+            }
+        }
+    }
+    return newAd;
+};
+
+// Endpoint to get all records
+router.get('/adsdomains', (req, res) => {
+    const query = 'SELECT * FROM adsdomains';
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching records:', err);
+            return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+        }
+        const parsedResults = results.map(parseJsonFields);
+        res.status(200).json(parsedResults);
+    });
+});
+
+// Endpoint to get a single record by LibraryID
+router.get('/adsdomains/:libraryId', (req, res) => {
+    const { libraryId } = req.params;
+    const query = 'SELECT * FROM adsdomains WHERE LibraryID = ?';
+
+    db.query(query, [libraryId], (err, results) => {
+        if (err) {
+            console.error('Error fetching record:', err);
+            return res.status(500).json({ message: 'Error fetching record from database.', error: err });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Record not found.' });
+        }
+        const parsedResult = parseJsonFields(results[0]);
+        res.status(200).json(parsedResult);
+    });
+});
+
+// Endpoint to insert records
+router.post('/saveToMariaDB', (req, res) => {
+    const ads = Array.isArray(req.body) ? req.body : [req.body];
+
+    if (ads.length === 0) {
+        return res.status(400).json({ message: 'Request body must contain at least one ad object.' });
+    }
+
+    const query = 'INSERT INTO adsdomains (cta_text, cta_type, __html, page_profile_uri, publisherPlatform, URLCreative, url_preview_creative, AdCreative, AdMedia, profilePict, page_profile_picture_url, Active, Estatus, CollectionCount, CollationID, startDate, endDate, LibraryID, ahref, pageName, pageID, AdDescription, AdTitle, age, gender, languages, countries, daysSincePublication, lazy_load, contains_details, domain, codeBelongs, keywords, duplicates) VALUES ?';
+
+    const values = ads.map(ad => [
+        ad.cta_text,
+        ad.cta_type,
+        ad.__html,
+        ad.page_profile_uri,
+        JSON.stringify(ad.publisherPlatform),
+        ad.URLCreative,
+        ad.url_preview_creative,
+        ad.AdCreative,
+        ad.AdMedia,
+        ad.profilePict,
+        ad.page_profile_picture_url,
+        ad.Active,
+        ad.Estatus,
+        ad.CollectionCount,
+        ad.CollationID,
+        ad.startDate,
+        ad.endDate,
+        ad.LibraryID,
+        ad.ahref,
+        ad.pageName,
+        ad.pageID,
+        JSON.stringify(ad.AdDescription),
+        JSON.stringify(ad.AdTitle),
+        JSON.stringify(ad.age),
+        ad.gender,
+        JSON.stringify(ad.languages),
+        JSON.stringify(ad.countries),
+        ad.daysSincePublication,
+        ad.lazy_load,
+        ad.contains_details,
+        ad.domain,
+        JSON.stringify(ad.codeBelongs),
+        ad.keywords,
+        ad.duplicates
+    ]);
+
+    db.query(query, [values], (err, result) => {
+        if (err) {
+            console.error('Error inserting records:', err);
+            return res.status(500).json({ message: 'Error inserting records into database.', error: err });
+        }
+        res.status(200).json({ message: 'Records inserted successfully.', affectedRows: result.affectedRows });
+    });
+});
+
+// Endpoint to delete a record
+router.delete('/adsdomains/:id', (req, res) => {
+    const { id } = req.params;
+    const query = 'DELETE FROM adsdomains WHERE id = ?';
+
+    db.query(query, [id], (err, result) => {
+        if (err) {
+            console.error('Error deleting record:', err);
+            return res.status(500).json({ message: 'Error deleting record from database.', error: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Record not found.' });
+        }
+        res.status(200).json({ message: 'Record deleted successfully.' });
+    });
+});
+
+// Endpoint to update a record
+router.put('/adsdomains/:id', (req, res) => {
+    const { id } = req.params;
+    const ad = req.body;
+
+    // Stringify JSON fields
+    const fieldsToUpdate = {};
+    for (const key in ad) {
+        if (Object.hasOwnProperty.call(ad, key)) {
+            const value = ad[key];
+            if (['publisherPlatform', 'AdDescription', 'AdTitle', 'age', 'languages', 'countries', 'codeBelongs'].includes(key) && typeof value !== 'string') {
+                fieldsToUpdate[key] = JSON.stringify(value);
+            } else {
+                fieldsToUpdate[key] = value;
+            }
+        }
+    }
+
+
+    const query = 'UPDATE adsdomains SET ? WHERE id = ?';
+
+    db.query(query, [fieldsToUpdate, id], (err, result) => {
+        if (err) {
+            console.error('Error updating record:', err);
+            return res.status(500).json({ message: 'Error updating record in database.', error: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Record not found.' });
+        }
+        res.status(200).json({ message: 'Record updated successfully.' });
+    });
+});
+
+// --- S3 Links Endpoints ---
+
+// POST /s3-links - Create a new S3 link record
+router.post('/s3-links', (req, res) => {
+    const { LibraryID, Location, _key, Bucket } = req.body;
+
+    if (!LibraryID || !_key) {
+        return res.status(400).json({ message: 'LibraryID and _key are required.' });
+    }
+
+    const query = 'INSERT INTO lnk_ads_s3_bucket (LibraryID, Location, _key, Bucket) VALUES (?, ?, ?, ?)';
+    const values = [LibraryID, Location, _key, Bucket];
+
+    db.query(query, values, (err, result) => {
+        if (err) {
+            console.error('Error creating S3 link record:', err);
+            return res.status(500).json({ message: 'Error creating S3 link record.', error: err });
+        }
+        res.status(201).json({ message: 'S3 link record created successfully.', id: result.insertId });
+    });
+});
+
+// GET /s3-links/:libraryId - Get an S3 link record by LibraryID
+router.get('/s3-links/:libraryId', (req, res) => {
+    const { libraryId } = req.params;
+    const query = 'SELECT * FROM lnk_ads_s3_bucket WHERE LibraryID = ?';
+
+    db.query(query, [libraryId], (err, results) => {
+        if (err) {
+            console.error('Error fetching S3 link record:', err);
+            return res.status(500).json({ message: 'Error fetching S3 link record.', error: err });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'S3 link record not found.' });
+        }
+        res.status(200).json(results[0]);
+    });
+});
+
+// PUT /s3-links/:libraryId - Update an S3 link record by LibraryID
+router.put('/s3-links/:libraryId', (req, res) => {
+    const { libraryId } = req.params;
+    const fieldsToUpdate = req.body;
+
+    const query = 'UPDATE lnk_ads_s3_bucket SET ? WHERE LibraryID = ?';
+
+    db.query(query, [fieldsToUpdate, libraryId], (err, result) => {
+        if (err) {
+            console.error('Error updating S3 link record:', err);
+            return res.status(500).json({ message: 'Error updating S3 link record.', error: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'S3 link record not found.' });
+        }
+        res.status(200).json({ message: 'S3 link record updated successfully.' });
+    });
+});
+
+// DELETE /s3-links/:libraryId - Delete an S3 link record by LibraryID
+router.delete('/s3-links/:libraryId', (req, res) => {
+    const { libraryId } = req.params;
+    const query = 'DELETE FROM lnk_ads_s3_bucket WHERE LibraryID = ?';
+
+    db.query(query, [libraryId], (err, result) => {
+        if (err) {
+            console.error('Error deleting S3 link record:', err);
+            return res.status(500).json({ message: 'Error deleting S3 link record.', error: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'S3 link record not found.' });
+        }
+        res.status(200).json({ message: 'S3 link record deleted successfully.' });
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+});
