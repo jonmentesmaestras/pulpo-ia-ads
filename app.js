@@ -7,17 +7,18 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const port = 3002;
+const port = 3001;
 const router = express.Router();
 
 app.use(cors());
 app.use(express.json());
-app.use('/ads', router);
+app.use('/', router);
 
 // Ensure /ads/public/images directory exists
 const imagesDir = '/home/zmcrbvch/public_html/images';
+const imagesDir = "./public/images/";
 if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
+    fs.mkdirSync(imagesDir, {recursive: true});
 }
 
 // Multer storage config
@@ -43,23 +44,23 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const upload = multer({ storage, fileFilter });
+const upload = multer({storage, fileFilter});
 
 // POST /ads/upload-image endpoint
 router.post('/upload-image', upload.single('image'), (req, res) => {
     if (!req.file) {
-        return res.status(400).json({ error: 'No image uploaded or invalid file type.' });
+        return res.status(400).json({error: 'No image uploaded or invalid file type.'});
     }
     const filename = req.file.filename;
     const imageUrl = `https://tueducaciondigital.site/images/${filename}`;
-    res.json({ image: imageUrl });
+    res.json({image: imageUrl});
 });
 
 const db = mysql.createPool({
-    host: '50.31.176.8',
-    user: 'zmcrbvch_jon',
+    host: '205.234.134.50',
+    user: 'admin_backend_admin_db',
     password: 'Runero!54Alien32.',
-    database: 'zmcrbvch_emailHacks',
+    database: 'admin_backend_zmcrbvch_emailHacks',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -68,15 +69,15 @@ const db = mysql.createPool({
 const jsonFields = ['publisherPlatform', 'AdDescription', 'AdTitle', 'age', 'languages', 'countries', 'codeBelongs'];
 
 function dateToEpochUnix(customeDate) {
-  const date = new Date(customeDate);
-  const unixTimeMillis = date.getTime();
-  const unixTime = Math.floor(unixTimeMillis / 1000);
-  return unixTime;
+    const date = new Date(customeDate);
+    const unixTimeMillis = date.getTime();
+    const unixTime = Math.floor(unixTimeMillis / 1000);
+    return unixTime;
 }
 
 // Helper function to parse JSON fields and convert boolean
 const parseJsonFields = (ad) => {
-    const newAd = { ...ad };
+    const newAd = {...ad};
 
     if (newAd.hasOwnProperty('Active')) {
         newAd.Active = Boolean(newAd.Active);
@@ -103,22 +104,22 @@ function asUtf8String(value) {
 
 function parseJsonIfLooksLikeJson(value) {
     const str = asUtf8String(value).trim();
-    if (!str) return { ok: false, raw: str, value: null };
+    if (!str) return {ok: false, raw: str, value: null};
 
     // Only attempt JSON.parse when it visually looks like JSON
     if (!(str.startsWith('[') || str.startsWith('{') || str.startsWith('"'))) {
-        return { ok: false, raw: str, value: null };
+        return {ok: false, raw: str, value: null};
     }
 
     try {
-        return { ok: true, raw: str, value: JSON.parse(str) };
+        return {ok: true, raw: str, value: JSON.parse(str)};
     } catch {
-        return { ok: false, raw: str, value: null };
+        return {ok: false, raw: str, value: null};
     }
 }
 
 function parseTextOrJsonArray(value) {
-    const { ok, raw, value: parsed } = parseJsonIfLooksLikeJson(value);
+    const {ok, raw, value: parsed} = parseJsonIfLooksLikeJson(value);
 
     if (ok) {
         if (Array.isArray(parsed)) return parsed;
@@ -132,12 +133,12 @@ function parseTextOrJsonArray(value) {
 }
 
 function parseJsonArrayOrEmpty(value) {
-    const { ok, value: parsed } = parseJsonIfLooksLikeJson(value);
+    const {ok, value: parsed} = parseJsonIfLooksLikeJson(value);
     return ok && Array.isArray(parsed) ? parsed : [];
 }
 
 function parseCountriesList(value) {
-    const { ok, raw, value: parsed } = parseJsonIfLooksLikeJson(value);
+    const {ok, raw, value: parsed} = parseJsonIfLooksLikeJson(value);
 
     let str = raw;
     if (ok) {
@@ -230,7 +231,7 @@ async function fetchActiveDetails(ids) {
         endpointIndex++;
         try {
             const resp = await axios.get(endpoint, {
-                params: { ids: chunk.join(',') },
+                params: {ids: chunk.join(',')},
                 timeout: 20000
             });
             if (!resp) continue;
@@ -238,19 +239,23 @@ async function fetchActiveDetails(ids) {
             let payload = resp.data;
             // Some gateways may return { statusCode, body }
             if (payload && typeof payload === 'object' && payload.body) {
-                try { payload = JSON.parse(payload.body); } catch (e) { payload = []; }
+                try {
+                    payload = JSON.parse(payload.body);
+                } catch (e) {
+                    payload = [];
+                }
             }
 
             // API only returns active ads. If an ad is in the payload, it's active.
-                if (Array.isArray(payload)) {
-                    for (const item of payload) {
-                        if (item && typeof item.LibraryID !== 'undefined' && item.Active === true) {
-                            activeMap.set(String(item.LibraryID), true);
-                        }
+            if (Array.isArray(payload)) {
+                for (const item of payload) {
+                    if (item && typeof item.LibraryID !== 'undefined' && item.Active === true) {
+                        activeMap.set(String(item.LibraryID), true);
                     }
-                } else {
-                    console.warn('[ActiveEnrichment] Unexpected payload format from', endpoint);
                 }
+            } else {
+                console.warn('[ActiveEnrichment] Unexpected payload format from', endpoint);
+            }
         } catch (e) {
 
             console.error('[ActiveEnrichment] Request failed for', endpoint, e && e.message ? e.message : e);
@@ -265,14 +270,14 @@ router.get('/getads', async (req, res) => {
     const {
         keywords,
         landing,
-    videoHost,
-    pageBuilder,
+        videoHost,
+        pageBuilder,
         ad_reached_countries,
         ad_active_status,
         duplicates,
-    cta,
-    media_type,
-    publisher_platforms,
+        cta,
+        media_type,
+        publisher_platforms,
         updated_date_min,
         updated_date_max,
         limit = 10,
@@ -322,7 +327,7 @@ router.get('/getads', async (req, res) => {
     }
     // Hybrid codeBelongs filtering:
     // (landing1 OR landing2 OR ...) AND (videoHost if provided) AND (pageBuilder if provided)
-    (function() {
+    (function () {
         // Landing: comma-separated -> OR group
         if (landing && typeof landing === 'string' && landing.trim() !== '' && landing.toUpperCase() !== 'ALL') {
             const landingTerms = [...new Set(landing.split(',').map(s => s.trim()).filter(s => s && s.toUpperCase() !== 'ALL'))];
@@ -440,30 +445,33 @@ router.get('/getads', async (req, res) => {
             ? 'ORDER BY score DESC, `adsdomains`.`id` DESC'
             : 'ORDER BY `adsdomains`.`id` DESC');
 
-    const countQuery = `SELECT COUNT(*) as totalItems FROM adsdomains ${whereString}`;
+    const countQuery = `SELECT COUNT(*) as totalItems
+                        FROM adsdomains ${whereString}`;
     console.log('[GET /ads/getads] WHERE:', whereString, 'PARAMS:', params);
     db.query(countQuery, params, (err, countResult) => {
         if (err) {
             console.error('Error fetching records count:', err);
-            return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+            return res.status(500).json({message: 'Error fetching records from database.', error: err});
         }
         const totalItems = countResult[0].totalItems;
         const totalPages = Math.ceil(totalItems / limit);
         const offset = (page - 1) * limit;
 
-        const dataQuery = `SELECT ${selectColumns} FROM adsdomains ${whereString} ${orderByClause} LIMIT ? OFFSET ?`;
+        const dataQuery = `SELECT ${selectColumns}
+                           FROM adsdomains ${whereString} ${orderByClause}
+                           LIMIT ? OFFSET ?`;
         // If fulltextUsed, we added one booleanQuery param inside WHERE (already in params) and need another for SELECT relevance
         const dataParams = fulltextUsed
             ? [booleanQuery, ...params, parseInt(limit), parseInt(offset)]
             : [...params, parseInt(limit), parseInt(offset)];
 
-    console.log(' OJOOO [GET /ads/getads] DATA QUERY:', dataQuery, 'DATA PARAMS:', dataParams);
+        console.log(' OJOOO [GET /ads/getads] DATA QUERY:', dataQuery, 'DATA PARAMS:', dataParams);
 
         db.query(dataQuery, dataParams, async (err, results) => {
-            
+
             if (err) {
                 console.error('Error fetching records:', err);
-                return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+                return res.status(500).json({message: 'Error fetching records from database.', error: err});
             }
 
             // If ACTIVE requested, enrich Active via AWS details endpoints (batch <=10 ids, round-robin endpoints)
@@ -526,17 +534,17 @@ router.get('/getads', async (req, res) => {
 router.get('/analisis-ads', (req, res) => {
     const libraryId = (req.query && req.query.libraryId) ? String(req.query.libraryId).trim() : '';
     if (!libraryId) {
-        return res.status(400).json({ message: 'Missing libraryId query parameter.' });
+        return res.status(400).json({message: 'Missing libraryId query parameter.'});
     }
 
     const query = 'SELECT * FROM Analisis_Ads WHERE FK_LibraryID = ? ORDER BY ID DESC LIMIT 1';
     db.query(query, [libraryId], (err, results) => {
         if (err) {
             console.error('Error fetching Analisis_Ads:', err);
-            return res.status(500).json({ message: 'Error fetching analysis from database.', error: err });
+            return res.status(500).json({message: 'Error fetching analysis from database.', error: err});
         }
         if (!results || results.length === 0) {
-            return res.status(404).json({ message: 'Not found.' });
+            return res.status(404).json({message: 'Not found.'});
         }
 
         return res.status(200).json(buildAnalisisAdsResponse(results[0]));
@@ -553,7 +561,7 @@ router.post('/analisis-ads', (req, res) => {
     const libraryId = body.FK_LibraryID ? String(body.FK_LibraryID).trim() : '';
 
     if (!libraryId) {
-        return res.status(400).json({ message: 'FK_LibraryID is required.' });
+        return res.status(400).json({message: 'FK_LibraryID is required.'});
     }
 
     const insertPayload = {
@@ -573,7 +581,7 @@ router.post('/analisis-ads', (req, res) => {
     db.getConnection((connErr, conn) => {
         if (connErr) {
             console.error('Error getting DB connection:', connErr);
-            return res.status(500).json({ message: 'Database connection error.', error: connErr });
+            return res.status(500).json({message: 'Database connection error.', error: connErr});
         }
 
         const rollbackAndRespond = (status, payload) => {
@@ -587,7 +595,7 @@ router.post('/analisis-ads', (req, res) => {
             if (txErr) {
                 console.error('Error starting transaction:', txErr);
                 conn.release();
-                return res.status(500).json({ message: 'Database transaction error.', error: txErr });
+                return res.status(500).json({message: 'Database transaction error.', error: txErr});
             }
 
             // Lock any existing row (or the gap) for this FK_LibraryID to prevent duplicates under concurrency.
@@ -595,7 +603,7 @@ router.post('/analisis-ads', (req, res) => {
             conn.query(selectSql, [libraryId], (selectErr, rows) => {
                 if (selectErr) {
                     console.error('Error checking existing Analisis_Ads:', selectErr);
-                    return rollbackAndRespond(500, { message: 'Error checking analysis existence.', error: selectErr });
+                    return rollbackAndRespond(500, {message: 'Error checking analysis existence.', error: selectErr});
                 }
 
                 if (rows && rows.length > 0) {
@@ -604,7 +612,7 @@ router.post('/analisis-ads', (req, res) => {
                         if (commitErr) {
                             console.error('Error committing transaction (exists path):', commitErr);
                             conn.release();
-                            return res.status(500).json({ message: 'Database commit error.', error: commitErr });
+                            return res.status(500).json({message: 'Database commit error.', error: commitErr});
                         }
                         conn.release();
                         return res.status(200).json({
@@ -634,7 +642,7 @@ router.post('/analisis-ads', (req, res) => {
                 conn.query(insertSql, insertParams, (insertErr, insertResult) => {
                     if (insertErr) {
                         console.error('Error inserting Analisis_Ads:', insertErr);
-                        return rollbackAndRespond(500, { message: 'Error inserting analysis.', error: insertErr });
+                        return rollbackAndRespond(500, {message: 'Error inserting analysis.', error: insertErr});
                     }
 
                     const newId = insertResult && insertResult.insertId ? insertResult.insertId : null;
@@ -646,7 +654,10 @@ router.post('/analisis-ads', (req, res) => {
                     conn.query(fetchSql, fetchParams, (fetchErr, fetchedRows) => {
                         if (fetchErr) {
                             console.error('Error fetching inserted Analisis_Ads:', fetchErr);
-                            return rollbackAndRespond(500, { message: 'Error fetching inserted analysis.', error: fetchErr });
+                            return rollbackAndRespond(500, {
+                                message: 'Error fetching inserted analysis.',
+                                error: fetchErr
+                            });
                         }
 
                         const createdRow = fetchedRows && fetchedRows.length > 0 ? fetchedRows[0] : null;
@@ -655,7 +666,7 @@ router.post('/analisis-ads', (req, res) => {
                             if (commitErr) {
                                 console.error('Error committing transaction (insert path):', commitErr);
                                 conn.release();
-                                return res.status(500).json({ message: 'Database commit error.', error: commitErr });
+                                return res.status(500).json({message: 'Database commit error.', error: commitErr});
                             }
                             conn.release();
                             return res.status(201).json({
@@ -709,25 +720,29 @@ router.get('/researchuser', async (req, res) => {
 
     const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    const countQuery = `SELECT COUNT(*) as totalItems FROM view_research_ads_users ${whereString}`;
+    const countQuery = `SELECT COUNT(*) as totalItems
+                        FROM view_research_ads_users ${whereString}`;
     console.log('[GET /ads/researchuser] WHERE:', whereString, 'PARAMS:', params);
 
     db.query(countQuery, params, (err, countResult) => {
         if (err) {
             console.error('Error fetching records count:', err);
-            return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+            return res.status(500).json({message: 'Error fetching records from database.', error: err});
         }
         const totalItems = countResult[0].totalItems;
         const totalPages = Math.ceil(totalItems / limit);
         const offset = (page - 1) * limit;
 
-        const dataQuery = `SELECT * FROM view_research_ads_users ${whereString} ORDER BY researchedAt DESC LIMIT ? OFFSET ?`;
+        const dataQuery = `SELECT *
+                           FROM view_research_ads_users ${whereString}
+                           ORDER BY researchedAt DESC
+                           LIMIT ? OFFSET ?`;
         const dataParams = [...params, parseInt(limit), parseInt(offset)];
 
         db.query(dataQuery, dataParams, (err, results) => {
             if (err) {
                 console.error('Error fetching records:', err);
-                return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+                return res.status(500).json({message: 'Error fetching records from database.', error: err});
             }
 
             const parsedResults = results.map(parseJsonFields);
@@ -756,17 +771,17 @@ router.get('/researchuser', async (req, res) => {
 router.get('/user-features', (req, res) => {
     const token = getBearerToken(req);
     if (!token) {
-        return res.status(401).json({ message: 'Missing or invalid bearer token.' });
+        return res.status(401).json({message: 'Missing or invalid bearer token.'});
     }
 
     const query = 'SELECT * FROM View_users_features WHERE Token = ? AND Active = 1';
     db.query(query, [token], (err, results) => {
         if (err) {
             console.error('Error fetching user features:', err);
-            return res.status(500).json({ message: 'Error fetching user features from database.', error: err });
+            return res.status(500).json({message: 'Error fetching user features from database.', error: err});
         }
         if (!results || results.length === 0) {
-            return res.status(404).json({ message: 'No features found for this token.' });
+            return res.status(404).json({message: 'No features found for this token.'});
         }
         return res.status(200).json({
             message: 'Success',
@@ -783,22 +798,22 @@ router.get('/user-features', (req, res) => {
 router.get('/user-feature-limits', (req, res) => {
     const token = getBearerToken(req);
     if (!token) {
-        return res.status(401).json({ message: 'Missing or invalid bearer token.' });
+        return res.status(401).json({message: 'Missing or invalid bearer token.'});
     }
 
     const featurePlanCode = req.query.featurePlanCode ? String(req.query.featurePlanCode).trim() : '';
     if (!featurePlanCode) {
-        return res.status(400).json({ message: 'Missing featurePlanCode query parameter.' });
+        return res.status(400).json({message: 'Missing featurePlanCode query parameter.'});
     }
 
     const userQuery = 'SELECT FK_UserID FROM UserTokens WHERE Token = ?';
     db.query(userQuery, [token], (err, userResults) => {
         if (err) {
             console.error('Error fetching user token:', err);
-            return res.status(500).json({ message: 'Error fetching user token from database.', error: err });
+            return res.status(500).json({message: 'Error fetching user token from database.', error: err});
         }
         if (!userResults || userResults.length === 0) {
-            return res.status(404).json({ message: 'Invalid token.' });
+            return res.status(404).json({message: 'Invalid token.'});
         }
 
         const userId = userResults[0].FK_UserID;
@@ -808,10 +823,10 @@ router.get('/user-feature-limits', (req, res) => {
         db.query(limitsQuery, [userId, likeValue], (err, results) => {
             if (err) {
                 console.error('Error fetching user feature limits:', err);
-                return res.status(500).json({ message: 'Error fetching user feature limits from database.', error: err });
+                return res.status(500).json({message: 'Error fetching user feature limits from database.', error: err});
             }
             if (!results || results.length === 0) {
-                return res.status(404).json({ message: 'No feature limits found for this token and featurePlanCode.' });
+                return res.status(404).json({message: 'No feature limits found for this token and featurePlanCode.'});
             }
 
             const currentRow = results[0];
@@ -819,27 +834,30 @@ router.get('/user-feature-limits', (req, res) => {
             const limite = Number(currentRow.Limite);
 
             if (Number.isNaN(totalUsed) || Number.isNaN(limite)) {
-                return res.status(500).json({ message: 'Invalid limit values from database.' });
+                return res.status(500).json({message: 'Invalid limit values from database.'});
             }
 
             if (totalUsed >= limite) {
-                return res.status(403).json({ message: 'Has llegado al límite' });
+                return res.status(403).json({message: 'Has llegado al límite'});
             }
 
             const updateQuery = 'UPDATE View_user_features_limits SET TotalUsed = TotalUsed + 1 WHERE FK_UserID = ? AND FeaturesPlanCode LIKE ? LIMIT 1';
             db.query(updateQuery, [userId, likeValue], (updateErr) => {
                 if (updateErr) {
                     console.error('Error updating user feature limits:', updateErr);
-                    return res.status(500).json({ message: 'Error updating user feature limits.', error: updateErr });
+                    return res.status(500).json({message: 'Error updating user feature limits.', error: updateErr});
                 }
 
                 db.query(limitsQuery, [userId, likeValue], (refetchErr, refetchResults) => {
                     if (refetchErr) {
                         console.error('Error refetching user feature limits:', refetchErr);
-                        return res.status(500).json({ message: 'Error fetching user feature limits from database.', error: refetchErr });
+                        return res.status(500).json({
+                            message: 'Error fetching user feature limits from database.',
+                            error: refetchErr
+                        });
                     }
                     if (!refetchResults || refetchResults.length === 0) {
-                        return res.status(404).json({ message: 'No feature limits found for this token and featurePlanCode.' });
+                        return res.status(404).json({message: 'No feature limits found for this token and featurePlanCode.'});
                     }
                     return res.status(200).json({
                         message: 'Success',
@@ -861,7 +879,7 @@ router.get('/adsdomains', (req, res) => {
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching records:', err);
-            return res.status(500).json({ message: 'Error fetching records from database.', error: err });
+            return res.status(500).json({message: 'Error fetching records from database.', error: err});
         }
         const parsedResults = results.map(parseJsonFields);
         res.status(200).json(parsedResults);
@@ -870,16 +888,16 @@ router.get('/adsdomains', (req, res) => {
 
 // Endpoint to get a single record by LibraryID
 router.get('/adsdomains/:libraryId', (req, res) => {
-    const { libraryId } = req.params;
+    const {libraryId} = req.params;
     const query = 'SELECT * FROM adsdomains WHERE LibraryID = ?';
 
     db.query(query, [libraryId], (err, results) => {
         if (err) {
             console.error('Error fetching record:', err);
-            return res.status(500).json({ message: 'Error fetching record from database.', error: err });
+            return res.status(500).json({message: 'Error fetching record from database.', error: err});
         }
         if (results.length === 0) {
-            return res.status(404).json({ message: 'Record not found.' });
+            return res.status(404).json({message: 'Record not found.'});
         }
         const parsedResult = parseJsonFields(results[0]);
         res.status(200).json(parsedResult);
@@ -888,30 +906,30 @@ router.get('/adsdomains/:libraryId', (req, res) => {
 
 // Endpoint to get a record by FK_LibraryID and token from adsdomains_usuarios
 router.get('/adsdomains/:libraryId/:token', (req, res) => {
-    const { libraryId, token } = req.params;
-    
+    const {libraryId, token} = req.params;
+
     // First, get FK_UserID from UserTokens using the token
     const userQuery = 'SELECT FK_UserID FROM UserTokens WHERE Token = ?';
-    
+
     db.query(userQuery, [token], (err, userResults) => {
         if (err) {
             console.error('Error fetching user token:', err);
-            return res.status(500).json({ message: 'Error fetching user token from database.', error: err });
+            return res.status(500).json({message: 'Error fetching user token from database.', error: err});
         }
         if (userResults.length === 0) {
-            return res.status(404).json({ message: 'Invalid token.' });
+            return res.status(404).json({message: 'Invalid token.'});
         }
-        
+
         const userId = userResults[0].FK_UserID;
         const query = 'SELECT * FROM adsdomains_usuarios WHERE FK_LibraryID = ? AND FK_UserID = ?';
 
         db.query(query, [libraryId, userId], (err, results) => {
             if (err) {
                 console.error('Error fetching record:', err);
-                return res.status(500).json({ message: 'Error fetching record from database.', error: err });
+                return res.status(500).json({message: 'Error fetching record from database.', error: err});
             }
             if (results.length === 0) {
-                return res.status(404).json({ message: 'Record not found.' });
+                return res.status(404).json({message: 'Record not found.'});
             }
             // Note: adsdomains_usuarios likely doesn't need parseJsonFields since it's a link table
             // but keeping it for consistency if needed
@@ -925,35 +943,40 @@ router.get('/adsdomains/:libraryId/:token', (req, res) => {
 // Fetch a single ad (by LibraryID) and return formatted structure for card view
 // GET DETAILS FOR ADS SAVED USING THE EXTENSION
 router.get('/getadssaveddetailsforcardview', (req, res) => {
-    const { ids } = req.query; // expecting single LibraryID
+    const {ids} = req.query; // expecting single LibraryID
     if (!ids) {
-        return res.status(400).json({ data: [], error: 'Missing ids parameter' });
+        return res.status(400).json({data: [], error: 'Missing ids parameter'});
     }
     const query = 'SELECT * FROM Anuncios WHERE LibraryID = ? LIMIT 1';
     db.query(query, [ids], (err, results) => {
         if (err) {
             console.error('Error fetching record for card view:', err);
-            return res.status(500).json({ data: [], error: 'Database error' });
+            return res.status(500).json({data: [], error: 'Database error'});
         }
         if (results.length === 0) {
-            return res.status(404).json({ data: [], error: 'Not found' });
+            return res.status(404).json({data: [], error: 'Not found'});
         }
         // Parse JSON fields for Anuncios table
         const row = results[0];
         console.log('[Anuncios keys]', Object.keys(row));
-        console.log('[Anuncios page fields]', { pageName: row.pageName, PageName: row.PageName, pageID: row.pageID, PageID: row.PageID });
-        
+        console.log('[Anuncios page fields]', {
+            pageName: row.pageName,
+            PageName: row.PageName,
+            pageID: row.pageID,
+            PageID: row.PageID
+        });
+
         // Parse JSON fields that exist in Anuncios table
         // These DB columns are not always valid JSON. Safely parse JSON when possible;
         // otherwise treat as plain text (or empty) without throwing.
         const parsedPlataformas = parseJsonArrayOrEmpty(row.Plataformas);
         const parsedAdDescription = parseTextOrJsonArray(row.AdDescription);
         const parsedAdTitle = parseTextOrJsonArray(row.AdTitle);
-        
+
         // Derive fields according to required structure using Anuncios table fields
         const adTitle = Array.isArray(parsedAdTitle) && parsedAdTitle.length > 0 ? parsedAdTitle[0] : (row.pageName || '');
         const adDescription = Array.isArray(parsedAdDescription) && parsedAdDescription.length > 0 ? parsedAdDescription[0] : '';
-        
+
         const formatted = {
             error: false,
             LibraryID: row.LibraryID || null,
@@ -983,7 +1006,7 @@ router.get('/getadssaveddetailsforcardview', (req, res) => {
             id: String(row.LibraryID || ''),
             fails: false
         };
-        return res.status(200).json({ data: [formatted], error: null });
+        return res.status(200).json({data: [formatted], error: null});
     });
 });
 
@@ -991,18 +1014,18 @@ router.get('/getadssaveddetailsforcardview', (req, res) => {
 // Endpoint: getadsdetailsforcardview?ids=LIBRARY_ID
 // Fetch a single ad (by LibraryID) and return formatted structure for card view
 router.get('/getadsdetailsforcardview', (req, res) => {
-    const { ids } = req.query; // expecting single LibraryID
+    const {ids} = req.query; // expecting single LibraryID
     if (!ids) {
-        return res.status(400).json({ data: [], error: 'Missing ids parameter' });
+        return res.status(400).json({data: [], error: 'Missing ids parameter'});
     }
     const query = 'SELECT * FROM adsdomains WHERE LibraryID = ? LIMIT 1';
     db.query(query, [ids], (err, results) => {
         if (err) {
             console.error('Error fetching record for card view:', err);
-            return res.status(500).json({ data: [], error: 'Database error' });
+            return res.status(500).json({data: [], error: 'Database error'});
         }
         if (results.length === 0) {
-            return res.status(404).json({ data: [], error: 'Not found' });
+            return res.status(404).json({data: [], error: 'Not found'});
         }
         // Parse JSON fields
         const row = parseJsonFields(results[0]);
@@ -1038,7 +1061,7 @@ router.get('/getadsdetailsforcardview', (req, res) => {
             id: String(row.LibraryID || ''),
             fails: false
         };
-        return res.status(200).json({ data: [formatted], error: null });
+        return res.status(200).json({data: [formatted], error: null});
     });
 });
 
@@ -1063,7 +1086,7 @@ router.post('/saveToMariaDB', (req, res) => {
     const token = (req.body && (req.body.token || req.body.Token)) ? String(req.body.token || req.body.Token).trim() : '';
 
     if (!ads || ads.length === 0) {
-        return res.status(400).json({ message: 'Request body must contain at least one ad object.' });
+        return res.status(400).json({message: 'Request body must contain at least one ad object.'});
     }
 
     const adsInsertQuery = 'INSERT INTO adsdomains (cta_text, cta_type, __html, page_profile_uri, publisherPlatform, URLCreative, url_preview_creative, AdCreative, AdMedia, profilePict, page_profile_picture_url, Active, Estatus, CollectionCount, CollationID, startDate, endDate, LibraryID, ahref, pageName, pageID, AdDescription, AdTitle, age, gender, languages, countries, daysSincePublication, lazy_load, contains_details, domain, codeBelongs, keywords, duplicates) VALUES ?';
@@ -1108,7 +1131,7 @@ router.post('/saveToMariaDB', (req, res) => {
     db.query(adsInsertQuery, [adsValues], (err, insertResult) => {
         if (err) {
             console.error('Error inserting records:', err);
-            return res.status(500).json({ message: 'Error inserting records into database.', error: err });
+            return res.status(500).json({message: 'Error inserting records into database.', error: err});
         }
 
         // Base response (may be enriched below)
@@ -1119,7 +1142,7 @@ router.post('/saveToMariaDB', (req, res) => {
 
         // Only attempt user linking if BOTH token & userPrompt provided and non-empty
         if (!token || !userPrompt) {
-            return res.status(200).json({ ...baseResponse, userLink: { attempted: false } });
+            return res.status(200).json({...baseResponse, userLink: {attempted: false}});
         }
 
         // Step 1: Get UserID from UserTokens by token (must be active & not expired)
@@ -1198,52 +1221,52 @@ router.post('/saveToMariaDB', (req, res) => {
 
 // POST /linkaduser - Link an ad to a user via token
 router.post('/linkaduser', (req, res) => {
-    const { token, FK_LibraryID, UserPrompt } = req.body;
+    const {token, FK_LibraryID, UserPrompt} = req.body;
 
     if (!token || !FK_LibraryID) {
-        return res.status(400).json({ message: 'Token and FK_LibraryID are required.' });
+        return res.status(400).json({message: 'Token and FK_LibraryID are required.'});
     }
 
     // Step 1: Get FK_UserID from UserTokens using the token
     const userQuery = 'SELECT FK_UserID FROM UserTokens WHERE Token = ?';
-    
+
     db.query(userQuery, [token], (err, userResults) => {
         if (err) {
             console.error('Error fetching user token:', err);
-            return res.status(500).json({ message: 'Error fetching user token from database.', error: err });
+            return res.status(500).json({message: 'Error fetching user token from database.', error: err});
         }
         if (userResults.length === 0) {
-            return res.status(404).json({ message: 'Invalid token.' });
+            return res.status(404).json({message: 'Invalid token.'});
         }
-        
+
         const userId = userResults[0].FK_UserID;
-        
+
         // Step 2: Check if record already exists
         const checkQuery = 'SELECT * FROM adsdomains_usuarios WHERE FK_LibraryID = ? AND FK_UserID = ?';
-        
+
         db.query(checkQuery, [FK_LibraryID, userId], (err, existingResults) => {
             if (err) {
                 console.error('Error checking existing record:', err);
-                return res.status(500).json({ message: 'Error checking existing record.', error: err });
+                return res.status(500).json({message: 'Error checking existing record.', error: err});
             }
-            
+
             if (existingResults.length > 0) {
-                return res.status(409).json({ 
+                return res.status(409).json({
                     message: 'Record already exists.',
                     existingRecord: existingResults[0]
                 });
             }
-            
+
             // Step 3: Insert new record if it doesn't exist
             const insertQuery = 'INSERT INTO adsdomains_usuarios (FK_LibraryID, FK_UserID, UserPrompt, CreatedAt) VALUES (?, ?, ?, ?)';
             const insertValues = [FK_LibraryID, userId, UserPrompt || null, new Date()];
-            
+
             db.query(insertQuery, insertValues, (err, insertResult) => {
                 if (err) {
                     console.error('Error inserting record:', err);
-                    return res.status(500).json({ message: 'Error inserting record into database.', error: err });
+                    return res.status(500).json({message: 'Error inserting record into database.', error: err});
                 }
-                
+
                 res.status(201).json({
                     message: 'Ad linked to user successfully.',
                     id: insertResult.insertId,
@@ -1258,24 +1281,24 @@ router.post('/linkaduser', (req, res) => {
 
 // Endpoint to delete a record
 router.delete('/adsdomains/:id', (req, res) => {
-    const { id } = req.params;
+    const {id} = req.params;
     const query = 'DELETE FROM adsdomains WHERE id = ?';
 
     db.query(query, [id], (err, result) => {
         if (err) {
             console.error('Error deleting record:', err);
-            return res.status(500).json({ message: 'Error deleting record from database.', error: err });
+            return res.status(500).json({message: 'Error deleting record from database.', error: err});
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Record not found.' });
+            return res.status(404).json({message: 'Record not found.'});
         }
-        res.status(200).json({ message: 'Record deleted successfully.' });
+        res.status(200).json({message: 'Record deleted successfully.'});
     });
 });
 
 // Endpoint to update a record
 router.put('/adsdomains/:id', (req, res) => {
-    const { id } = req.params;
+    const {id} = req.params;
     const ad = req.body;
 
     // Stringify JSON fields
@@ -1297,12 +1320,12 @@ router.put('/adsdomains/:id', (req, res) => {
     db.query(query, [fieldsToUpdate, id], (err, result) => {
         if (err) {
             console.error('Error updating record:', err);
-            return res.status(500).json({ message: 'Error updating record in database.', error: err });
+            return res.status(500).json({message: 'Error updating record in database.', error: err});
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Record not found.' });
+            return res.status(404).json({message: 'Record not found.'});
         }
-        res.status(200).json({ message: 'Record updated successfully.' });
+        res.status(200).json({message: 'Record updated successfully.'});
     });
 });
 
@@ -1310,10 +1333,10 @@ router.put('/adsdomains/:id', (req, res) => {
 
 // POST /s3-links - Create a new S3 link record
 router.post('/s3-links', (req, res) => {
-    const { LibraryID, Location, _key, Bucket } = req.body;
+    const {LibraryID, Location, _key, Bucket} = req.body;
 
     if (!LibraryID || !_key) {
-        return res.status(400).json({ message: 'LibraryID and _key are required.' });
+        return res.status(400).json({message: 'LibraryID and _key are required.'});
     }
 
     const query = 'INSERT INTO lnk_ads_s3_bucket (LibraryID, Location, _key, Bucket) VALUES (?, ?, ?, ?)';
@@ -1322,24 +1345,24 @@ router.post('/s3-links', (req, res) => {
     db.query(query, values, (err, result) => {
         if (err) {
             console.error('Error creating S3 link record:', err);
-            return res.status(500).json({ message: 'Error creating S3 link record.', error: err });
+            return res.status(500).json({message: 'Error creating S3 link record.', error: err});
         }
-        res.status(201).json({ message: 'S3 link record created successfully.', id: result.insertId });
+        res.status(201).json({message: 'S3 link record created successfully.', id: result.insertId});
     });
 });
 
 // GET /s3-links/:libraryId - Get an S3 link record by LibraryID
 router.get('/s3-links/:libraryId', (req, res) => {
-    const { libraryId } = req.params;
+    const {libraryId} = req.params;
     const query = 'SELECT * FROM lnk_ads_s3_bucket WHERE LibraryID = ?';
 
     db.query(query, [libraryId], (err, results) => {
         if (err) {
             console.error('Error fetching S3 link record:', err);
-            return res.status(500).json({ message: 'Error fetching S3 link record.', error: err });
+            return res.status(500).json({message: 'Error fetching S3 link record.', error: err});
         }
         if (results.length === 0) {
-            return res.status(404).json({ message: 'S3 link record not found.' });
+            return res.status(404).json({message: 'S3 link record not found.'});
         }
         res.status(200).json(results[0]);
     });
@@ -1347,7 +1370,7 @@ router.get('/s3-links/:libraryId', (req, res) => {
 
 // PUT /s3-links/:libraryId - Update an S3 link record by LibraryID
 router.put('/s3-links/:libraryId', (req, res) => {
-    const { libraryId } = req.params;
+    const {libraryId} = req.params;
     const fieldsToUpdate = req.body;
 
     const query = 'UPDATE lnk_ads_s3_bucket SET ? WHERE LibraryID = ?';
@@ -1355,29 +1378,29 @@ router.put('/s3-links/:libraryId', (req, res) => {
     db.query(query, [fieldsToUpdate, libraryId], (err, result) => {
         if (err) {
             console.error('Error updating S3 link record:', err);
-            return res.status(500).json({ message: 'Error updating S3 link record.', error: err });
+            return res.status(500).json({message: 'Error updating S3 link record.', error: err});
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'S3 link record not found.' });
+            return res.status(404).json({message: 'S3 link record not found.'});
         }
-        res.status(200).json({ message: 'S3 link record updated successfully.' });
+        res.status(200).json({message: 'S3 link record updated successfully.'});
     });
 });
 
 // DELETE /s3-links/:libraryId - Delete an S3 link record by LibraryID
 router.delete('/s3-links/:libraryId', (req, res) => {
-    const { libraryId } = req.params;
+    const {libraryId} = req.params;
     const query = 'DELETE FROM lnk_ads_s3_bucket WHERE LibraryID = ?';
 
     db.query(query, [libraryId], (err, result) => {
         if (err) {
             console.error('Error deleting S3 link record:', err);
-            return res.status(500).json({ message: 'Error deleting S3 link record.', error: err });
+            return res.status(500).json({message: 'Error deleting S3 link record.', error: err});
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'S3 link record not found.' });
+            return res.status(404).json({message: 'S3 link record not found.'});
         }
-        res.status(200).json({ message: 'S3 link record deleted successfully.' });
+        res.status(200).json({message: 'S3 link record deleted successfully.'});
     });
 });
 
@@ -1390,12 +1413,12 @@ router.get('/prompts', (req, res) => {
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching prompts:', err);
-            return res.status(500).json({ message: 'Error fetching prompts from database.', error: err });
+            return res.status(500).json({message: 'Error fetching prompts from database.', error: err});
         }
 
         // Procesa los resultados para agruparlos por categoría
         const groupedPrompts = results.reduce((acc, row) => {
-            const { categoria, prompt } = row;
+            const {categoria, prompt} = row;
             if (!acc[categoria]) {
                 acc[categoria] = [];
             }
@@ -1412,10 +1435,10 @@ router.get('/prompts', (req, res) => {
 // POST /userprompts
 // Body: { "userprompt": "text the user entered" }
 router.post('/userprompts', (req, res) => {
-    const { userprompt } = req.body;
+    const {userprompt} = req.body;
 
     if (!userprompt || typeof userprompt !== 'string' || !userprompt.trim()) {
-        return res.status(400).json({ message: 'Field userprompt (non-empty string) is required.' });
+        return res.status(400).json({message: 'Field userprompt (non-empty string) is required.'});
     }
 
     const query = 'INSERT INTO userprompts (prompt, succeded) VALUES (?, ?)';
@@ -1424,7 +1447,7 @@ router.post('/userprompts', (req, res) => {
     db.query(query, values, (err, result) => {
         if (err) {
             console.error('Error saving user prompt:', err);
-            return res.status(500).json({ message: 'Error saving user prompt.', error: err });
+            return res.status(500).json({message: 'Error saving user prompt.', error: err});
         }
         res.status(201).json({
             message: 'User prompt saved.',
@@ -1437,23 +1460,26 @@ router.post('/userprompts', (req, res) => {
 
 // PUT /userprompts/:id/succeded  -> mark succeded = true
 router.put('/userprompts/:id/succeded', (req, res) => {
-    const { id } = req.params;
+    const {id} = req.params;
     if (!/^\d+$/.test(id)) {
-        return res.status(400).json({ message: 'Invalid id.' });
+        return res.status(400).json({message: 'Invalid id.'});
     }
     const query = 'UPDATE userprompts SET succeded = 1 WHERE id = ?';
     db.query(query, [id], (err, result) => {
         if (err) {
             console.error('Error updating user prompt:', err);
-            return res.status(500).json({ message: 'Error updating user prompt.', error: err });
+            return res.status(500).json({message: 'Error updating user prompt.', error: err});
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'User prompt not found.' });
+            return res.status(404).json({message: 'User prompt not found.'});
         }
-        res.status(200).json({ message: 'User prompt marked as succeded.', id: Number(id), succeded: true });
+        res.status(200).json({message: 'User prompt marked as succeded.', id: Number(id), succeded: true});
     });
 });
 
+router.get('/status', (req, res) => {
+    res.status(200).json({app: 'ads', status: 'ok', port: port});
+})
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
