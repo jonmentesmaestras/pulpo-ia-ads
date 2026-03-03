@@ -5,6 +5,7 @@ const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config()
 
 const app = express();
 const port = 3001;
@@ -57,10 +58,10 @@ router.post('/upload-image', upload.single('image'), (req, res) => {
 });
 
 const db = mysql.createPool({
-    host: '205.234.134.50',
-    user: 'admin_backend_admin_db',
-    password: 'Runero!54Alien32.',
-    database: 'admin_backend_zmcrbvch_emailHacks',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
