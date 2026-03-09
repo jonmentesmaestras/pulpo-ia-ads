@@ -7,6 +7,9 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config()
 
+const NodeCache = require('node-cache');
+const cacheMiddleware = require("./controllers/interceptors/cacheInterceptor");
+
 const app = express();
 const port = 3001;
 const router = express.Router();
@@ -16,7 +19,7 @@ app.use(express.json());
 app.use('/', router);
 
 // Ensure /ads/public/images directory exists
-const imagesDir = '/home/zmcrbvch/public_html/images';
+// const imagesDir = '/home/zmcrbvch/public_html/images';
 const imagesDir = "./public/images/";
 if (!fs.existsSync(imagesDir)) {
     fs.mkdirSync(imagesDir, {recursive: true});
@@ -267,7 +270,7 @@ async function fetchActiveDetails(ids) {
 }
 
 // Endpoint to get records with filtering and pagination (refactored for ACTIVE flow)
-router.get('/getads', async (req, res) => {
+router.get('/getads', cacheMiddleware, async (req, res) => {
     const {
         keywords,
         landing,
@@ -326,30 +329,57 @@ router.get('/getads', async (req, res) => {
             params.push(like, like, like, like);
         });
     }
-    // Hybrid codeBelongs filtering:
+    // Hybrid codeBelongs filtering (RESTAURADO EXACTO CON DOBLE FILTRO DE ALTO RENDIMIENTO)
     // (landing1 OR landing2 OR ...) AND (videoHost if provided) AND (pageBuilder if provided)
     (function () {
         // Landing: comma-separated -> OR group
         if (landing && typeof landing === 'string' && landing.trim() !== '' && landing.toUpperCase() !== 'ALL') {
             const landingTerms = [...new Set(landing.split(',').map(s => s.trim()).filter(s => s && s.toUpperCase() !== 'ALL'))];
+
             if (landingTerms.length === 1) {
-                whereClauses.push('codeBelongs LIKE ?');
-                params.push(`%"${landingTerms[0]}"%`);
+                const term = landingTerms[0];
+                if (term.length >= 3) {
+                    // Doble filtro: MATCH para velocidad, LIKE para precisión exacta
+                    whereClauses.push('(MATCH(codeBelongs) AGAINST(? IN BOOLEAN MODE) AND codeBelongs LIKE ?)');
+                    params.push(term, `%"${term}"%`);
+                } else {
+                    whereClauses.push('codeBelongs LIKE ?');
+                    params.push(`%"${term}"%`);
+                }
             } else if (landingTerms.length > 1) {
-                const orGroup = '(' + landingTerms.map(() => 'codeBelongs LIKE ?').join(' OR ') + ')';
+                const orGroup = '(' + landingTerms.map(term => {
+                    if (term.length >= 3) {
+                        params.push(term, `%"${term}"%`);
+                        return '(MATCH(codeBelongs) AGAINST(? IN BOOLEAN MODE) AND codeBelongs LIKE ?)';
+                    } else {
+                        params.push(`%"${term}"%`);
+                        return 'codeBelongs LIKE ?';
+                    }
+                }).join(' OR ') + ')';
                 whereClauses.push(orGroup);
-                landingTerms.forEach(t => params.push(`%"${t}"%`));
             }
         }
         // videoHost: mandatory presence (AND)
         if (videoHost && typeof videoHost === 'string' && videoHost.toUpperCase() !== 'ALL') {
-            whereClauses.push('codeBelongs LIKE ?');
-            params.push(`%"${videoHost}"%`);
+            const term = videoHost.trim();
+            if (term.length >= 3) {
+                whereClauses.push('(MATCH(codeBelongs) AGAINST(? IN BOOLEAN MODE) AND codeBelongs LIKE ?)');
+                params.push(term, `%"${term}"%`);
+            } else {
+                whereClauses.push('codeBelongs LIKE ?');
+                params.push(`%"${term}"%`);
+            }
         }
         // pageBuilder: mandatory presence (AND)
         if (pageBuilder && typeof pageBuilder === 'string' && pageBuilder.toUpperCase() !== 'ALL') {
-            whereClauses.push('codeBelongs LIKE ?');
-            params.push(`%"${pageBuilder}"%`);
+            const term = pageBuilder.trim();
+            if (term.length >= 3) {
+                whereClauses.push('(MATCH(codeBelongs) AGAINST(? IN BOOLEAN MODE) AND codeBelongs LIKE ?)');
+                params.push(term, `%"${term}"%`);
+            } else {
+                whereClauses.push('codeBelongs LIKE ?');
+                params.push(`%"${term}"%`);
+            }
         }
     })();
     // Refactored ad_reached_countries filter: only US or BR; else treat as ALL (fallback to 'ALL')
@@ -376,7 +406,7 @@ router.get('/getads', async (req, res) => {
         whereClauses.push('Active = ?');
         params.push(ad_active_status === 'true' ? 1 : 0);
     }
-    if (duplicates) {
+    if (duplicates !== undefined && duplicates !== '') {
         whereClauses.push('duplicates = ?');
         params.push(duplicates);
     }
@@ -448,7 +478,7 @@ router.get('/getads', async (req, res) => {
 
     const countQuery = `SELECT COUNT(*) as totalItems
                         FROM adsdomains ${whereString}`;
-    console.log('[GET /ads/getads] WHERE:', whereString, 'PARAMS:', params);
+    // console.log('[GET /ads/getads] WHERE:', whereString, 'PARAMS:', params);
     db.query(countQuery, params, (err, countResult) => {
         if (err) {
             console.error('Error fetching records count:', err);
@@ -466,7 +496,7 @@ router.get('/getads', async (req, res) => {
             ? [booleanQuery, ...params, parseInt(limit), parseInt(offset)]
             : [...params, parseInt(limit), parseInt(offset)];
 
-        console.log(' OJOOO [GET /ads/getads] DATA QUERY:', dataQuery, 'DATA PARAMS:', dataParams);
+        // console.log(' OJOOO [GET /ads/getads] DATA QUERY:', dataQuery, 'DATA PARAMS:', dataParams);
 
         db.query(dataQuery, dataParams, async (err, results) => {
 
@@ -696,7 +726,7 @@ router.get('/researchuser', async (req, res) => {
         page = 1
     } = req.query;
 
-    console.log('[GET /ads/researchuser] query params:', req.query);
+    // console.log('[GET /ads/researchuser] query params:', req.query);
 
     let whereClauses = [];
     let params = [];
@@ -723,7 +753,7 @@ router.get('/researchuser', async (req, res) => {
 
     const countQuery = `SELECT COUNT(*) as totalItems
                         FROM view_research_ads_users ${whereString}`;
-    console.log('[GET /ads/researchuser] WHERE:', whereString, 'PARAMS:', params);
+    // console.log('[GET /ads/researchuser] WHERE:', whereString, 'PARAMS:', params);
 
     db.query(countQuery, params, (err, countResult) => {
         if (err) {
@@ -959,7 +989,7 @@ router.get('/getadssaveddetailsforcardview', (req, res) => {
         }
         // Parse JSON fields for Anuncios table
         const row = results[0];
-        console.log('[Anuncios keys]', Object.keys(row));
+        // console.log('[Anuncios keys]', Object.keys(row));
         console.log('[Anuncios page fields]', {
             pageName: row.pageName,
             PageName: row.PageName,
