@@ -50,7 +50,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({storage, fileFilter});
 
-// POST /ads/upload-image endpoint
+// POST /upload-image endpoint
 router.post('/upload-image', upload.single('image'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({error: 'No image uploaded or invalid file type.'});
